@@ -104,61 +104,6 @@ contract NFTfiSigningUtils {
     }
 
     // @notice This function is called in NFTfi.beginLoan() to validate the
-    //         borrower's signature that the borrower provided off-chain to
-    //         verify that they did indeed want to use this NFT for this loan.
-    // @param  _nftCollateralId - The ID within the NFTCollateralContract for
-    //         the NFT being used as collateral for this loan. The NFT is
-    //         stored within this contract during the duration of the loan.
-    // @param  _borrowerNonce - The nonce referred to here
-    //         is not the same as an Ethereum account's nonce. We are referring
-    //         instead to nonces that are used by both the lender and the
-    //         borrower when they are first signing off-chain NFTfi orders.
-    //         These nonces can be any uint256 value that the user has not
-    //         previously used to sign an off-chain order. Each nonce can be
-    //         used at most once per user within NFTfi, regardless of whether
-    //         they are the lender or the borrower in that situation. This
-    //         serves two purposes. First, it prevents replay attacks where an
-    //         attacker would submit a user's off-chain order more than once.
-    //         Second, it allows a user to cancel an off-chain order by calling
-    //         NFTfi.cancelLoanCommitmentBeforeLoanHasBegun(), which marks the
-    //         nonce as used and prevents any future loan from using the user's
-    //         off-chain order that contains that nonce.
-    // @param  _nftCollateralContract - The ERC721 contract of the NFT
-    //         collateral
-    // @param  _borrower - The address of the borrower.
-    // @param  _borrowerSignature - The ECDSA signature of the borrower,
-    //         obtained off-chain ahead of time, signing the following
-    //         combination of parameters: _nftCollateralId, _borrowerNonce,
-    //         _nftCollateralContract, _borrower.
-    // @return A bool representing whether verification succeeded, showing that
-    //         this signature matched this address and parameters.
-    function isValidBorrowerSignature(
-        uint256 _nftCollateralId,
-        uint256 _borrowerNonce,
-        address _nftCollateralContract,
-        address _borrower,
-        bytes memory _borrowerSignature
-    ) public view returns(bool) {
-        if(_borrower == address(0)){
-            return false;
-        } else {
-            uint256 chainId;
-            chainId = getChainID();
-            bytes32 message = keccak256(abi.encodePacked(
-                _nftCollateralId,
-                _borrowerNonce,
-                _nftCollateralContract,
-                _borrower,
-                chainId
-            ));
-
-            bytes32 messageWithEthSignPrefix = message.toEthSignedMessageHash();
-
-            return (messageWithEthSignPrefix.recover(_borrowerSignature) == _borrower);
-        }
-    }
-
-    // @notice This function is called in NFTfi.beginLoan() to validate the
     //         lender's signature that the lender provided off-chain to
     //         verify that they did indeed want to agree to this loan according
     //         to these terms.
