@@ -176,7 +176,7 @@ contract NFTfiSigningUtils {
             uint256 chainId;
             chainId = getChainID();
             bytes32 message = keccak256(abi.encodePacked(
-                _collateralRateInBasisPoints,
+                _loanPrincipalAmount,
                 _maximumRepaymentAmount,
                 _nftCollateralId,
                 _loanDuration,
