@@ -3,7 +3,7 @@ Creating an NFT mortgage protocol that allows for undercollateralized leveraged 
 
 ## Some useful commands
 
-```truffle migrate --reset` ``
+```truffle migrate --reset```
 This will compile and run the migration scripts in the migrations folder.
 
 
