@@ -196,4 +196,44 @@ contract NFTfiSigningUtils {
             return (messageWithEthSignPrefix.recover(_borrowerSignature) == _borrower);
         }
     }
+
+    // @notice A mapping that takes both a user's address and a loan nonce
+    //         that was first used when signing an off-chain order and checks
+    //         whether that nonce has previously either been used for a loan,
+    //         or has been pre-emptively cancelled. The nonce referred to here
+    //         is not the same as an Ethereum account's nonce. We are referring
+    //         instead to nonces that are used by both the lender and the
+    //         borrower when they are first signing off-chain NFTfi orders.
+    //         These nonces can be any uint256 value that the user has not
+    //         previously used to sign an off-chain order. Each nonce can be
+    //         used at most once per user within NFTfi, regardless of whether
+    //         they are the lender or the borrower in that situation. This
+    //         serves two purposes. First, it prevents replay attacks where an
+    //         attacker would submit a user's off-chain order more than once.
+    //         Second, it allows a user to cancel an off-chain order by calling
+    //         NFTfi.cancelLoanCommitmentBeforeLoanHasBegun(), which marks the
+    //         nonce as used and prevents any future loan from using the user's
+    //         off-chain order that contains that nonce.
+    mapping (address => mapping (uint256 => bool)) private _nonceHasBeenUsedForUser;
+
+    // @notice This function can be called by either a lender or a borrower to
+    //         cancel all off-chain orders that they have signed that contain
+    //         this nonce. If the off-chain orders were created correctly,
+    //         there should only be one off-chain order that contains this
+    //         nonce at all.
+
+    function cancelLoanCommitmentBeforeLoanHasBegun(uint256 _nonce) external {
+        require(!_nonceHasBeenUsedForUser[msg.sender][_nonce], 'Nonce invalid, user has either cancelled/begun this loan, or reused a nonce when signing');
+        _nonceHasBeenUsedForUser[msg.sender][_nonce] = true;
+
+    // @notice This function can be used to view whether a particular nonce
+    //         for a particular user has already been used, either from a
+    //         successful loan or a cancelled off-chain order.
+    // @param  _user - The address of the user. This function works for both
+    //         lenders and borrowers alike.
+    // @return A bool representing whether or not this nonce has been used for
+    //         this user.
+    function getWhetherNonceHasBeenUsedForUser(address _user, uint256 _nonce) public view returns (bool) {
+        return _nonceHasBeenUsedForUser[_user][_nonce];
+    }
 }
