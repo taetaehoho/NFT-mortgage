@@ -69,15 +69,9 @@ library ECDSA {
 pragma solidity ^0.5.16;
 
 
-// @title  Helper contract for NFTfi. This contract manages verifying signatures
-//         from off-chain NFTfi orders.
-// @author smartcontractdev.eth, creator of wrappedkitties.eth, cwhelper.eth,
-//         and kittybounties.eth
-// @notice Cite: I found the following article very insightful while creating
-//         this contract:
-//         https://dzone.com/articles/signing-and-verifying-ethereum-signatures
-// @notice Cite: I also relied on this article somewhat:
-//         https://forum.openzeppelin.com/t/sign-it-like-you-mean-it-creating-and-verifying-ethereum-signatures/697
+// @title  Helper contract for NFT mortgage. This contract manages verifying signatures
+//         from off-chain loan applications.
+// @author @0xcesare, 0xtaetaehoho, @Jonatha26383028
 contract NFTfiSigningUtils {
 
     /* *********** */
@@ -103,13 +97,12 @@ contract NFTfiSigningUtils {
         return id;
     }
 
-    // @notice This function is called in NFTfi.beginLoan() to validate the
-    //         lender's signature that the lender provided off-chain to
+    // @notice This function is called in nftmortgage.beginLoan() to validate the
+    //         borrower's signature that the borrower provided off-chain to
     //         verify that they did indeed want to agree to this loan according
     //         to these terms.
-    // @param  _loanPrincipalAmount - The original sum of money transferred
-    //         from lender to borrower at the beginning of the loan, measured
-    //         in loanERC20Denomination's smallest units.
+    // @param  _collateralRateInBasisPoints - Collateral rate in basis points 
+    //         supplied from borrower to the partybid.
     // @param  _maximumRepaymentAmount - The maximum amount of money that the
     //         borrower would be required to retrieve their collateral. If
     //         interestIsProRated is set to false, then the borrower will
@@ -130,7 +123,7 @@ contract NFTfiSigningUtils {
     //         in the loan struct to prevent an attack where the contract
     //         admins could adjust the fee right before a loan is repaid, and
     //         take all of the interest earned.
-    // @param  _lenderNonce - The nonce referred to here
+    // @param  _borrowerNonce - The nonce referred to here
     //         is not the same as an Ethereum account's nonce. We are referring
     //         instead to nonces that are used by both the lender and the
     //         borrower when they are first signing off-chain NFTfi orders.
@@ -148,36 +141,36 @@ contract NFTfiSigningUtils {
     //         collateral
     // @param  _loanERC20Denomination - The ERC20 contract of the currency being
     //         used as principal/interest for this loan.
-    // @param  _lender - The address of the lender. The lender can change their
-    //         address by transferring the NFTfi ERC721 token that they
-    //         received when the loan began.
+    // @param  _borrower - The address of the borrower. 
     // @param  _interestIsProRated - A boolean value determining whether the
     //         interest will be pro-rated if the loan is repaid early, or
     //         whether the borrower will simply pay maximumRepaymentAmount.
-    // @param  _lenderSignature - The ECDSA signature of the lender,
+    // @param  _borrowerSignature - The ECDSA signature of the borrower,
     //         obtained off-chain ahead of time, signing the following
     //         combination of parameters: _loanPrincipalAmount,
     //         _maximumRepaymentAmount _nftCollateralId, _loanDuration,
-    //         _loanInterestRateForDurationInBasisPoints, _lenderNonce,
-    //         _nftCollateralContract, _loanERC20Denomination, _lender,
+    //         _loanInterestRateForDurationInBasisPoints, _borrowerNonce,
+    //         _nftCollateralContract, _loanERC20Denomination, _borrower,
     //         _interestIsProRated.
     // @return A bool representing whether verification succeeded, showing that
     //         this signature matched this address and parameters.
-    function isValidLenderSignature(
-        uint256 _loanPrincipalAmount,
+    function isValidBorrowerSignature(
+        uint256 _collateralRateInBasisPoints,
+        // the above param will change with our implementation
         uint256 _maximumRepaymentAmount,
         uint256 _nftCollateralId,
         uint256 _loanDuration,
         uint256 _loanInterestRateForDurationInBasisPoints,
         uint256 _adminFeeInBasisPoints,
-        uint256 _lenderNonce,
+        uint256 _borrowerNonce,
+        uint256 _maximumBid,
         address _nftCollateralContract,
         address _loanERC20Denomination,
-        address _lender,
+        address _borrower,
         bool _interestIsProRated,
-        bytes memory _lenderSignature
+        bytes memory _borrowerSignature
     ) public view returns(bool) {
-        if(_lender == address(0)){
+        if(_borrower == address(0)){
             return false;
         } else {
             uint256 chainId;
@@ -189,17 +182,18 @@ contract NFTfiSigningUtils {
                 _loanDuration,
                 _loanInterestRateForDurationInBasisPoints,
                 _adminFeeInBasisPoints,
-                _lenderNonce,
+                _borrowerNonce,
+                _maximumBid,
                 _nftCollateralContract,
                 _loanERC20Denomination,
-                _lender,
+                _borrower,
                 _interestIsProRated,
                 chainId
             ));
 
             bytes32 messageWithEthSignPrefix = message.toEthSignedMessageHash();
 
-            return (messageWithEthSignPrefix.recover(_lenderSignature) == _lender);
+            return (messageWithEthSignPrefix.recover(_borrowerSignature) == _borrower);
         }
     }
 }
