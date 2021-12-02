@@ -236,4 +236,169 @@ contract NFTfiSigningUtils {
     function getWhetherNonceHasBeenUsedForUser(address _user, uint256 _nonce) public view returns (bool) {
         return _nonceHasBeenUsedForUser[_user][_nonce];
     }
+
+       /* ******************* */
+    /* READ-ONLY FUNCTIONS */
+    /* ******************* */
+
+    // @notice This function can be used to view the current quantity of the
+    //         ERC20 currency used in the specified loan required by the
+    //         borrower to repay their loan, measured in the smallest unit of
+    //         the ERC20 currency. Note that since interest accrues every
+    //         second, once a borrower calls repayLoan(), the amount will have
+    //         increased slightly.
+    // @param  _loanId  A unique identifier for this particular loan, sourced
+    //         from the continuously increasing parameter totalNumLoans.
+    // @return The amount of the specified ERC20 currency required to pay back
+    //         this loan, measured in the smallest unit of the specified ERC20
+    //         currency.
+    function getPayoffAmount(uint256 _loanId) public view returns (uint256) {
+        Loan storage loan = loanIdToLoan[_loanId];
+        if(loan.interestIsProRated == false){
+            return loan.maximumRepaymentAmount;
+        } else {
+            uint256 loanDurationSoFarInSeconds = now.sub(uint256(loan.loanStartTime));
+            uint256 interestDue = _computeInterestDue(loan.loanPrincipalAmount, loan.maximumRepaymentAmount, loanDurationSoFarInSeconds, uint256(loan.loanDuration), uint256(loan.loanInterestRateForDurationInBasisPoints));
+            return (loan.loanPrincipalAmount).add(interestDue);
+        }
+    }
+
+    /* ****************** */
+    /* INTERNAL FUNCTIONS */
+    /* ****************** */
+
+    // @notice A convenience function that calculates the amount of interest
+    //         currently due for a given loan. The interest is capped at
+    //         _maximumRepaymentAmount minus _loanPrincipalAmount.
+    // @param  _loanPrincipalAmount - The total quantity of principal first
+    //         loaned to the borrower, measured in the smallest units of the
+    //         ERC20 currency used for the loan.
+    // @param  _maximumRepaymentAmount - The maximum amount of money that the
+    //         borrower would be required to retrieve their collateral. If
+    //         interestIsProRated is set to false, then the borrower will
+    //         always have to pay this amount to retrieve their collateral.
+    // @param  _loanDurationSoFarInSeconds - The elapsed time (in seconds) that
+    //         has occurred so far since the loan began until repayment.
+    // @param  _loanTotalDurationAgreedTo - The original duration that the
+    //         borrower and lender agreed to, by which they measured the
+    //         interest that would be due.
+    // @param  _loanInterestRateForDurationInBasisPoints - The interest rate
+    ///        that the borrower and lender agreed would be due after the
+    //         totalDuration passed.
+    // @return The quantity of interest due, measured in the smallest units of
+    //         the ERC20 currency used to pay this loan.
+    function _computeInterestDue(uint256 _loanPrincipalAmount, uint256 _maximumRepaymentAmount, uint256 _loanDurationSoFarInSeconds, uint256 _loanTotalDurationAgreedTo, uint256 _loanInterestRateForDurationInBasisPoints) internal pure returns (uint256) {
+        uint256 interestDueAfterEntireDuration = (_loanPrincipalAmount.mul(_loanInterestRateForDurationInBasisPoints)).div(uint256(10000));
+        uint256 interestDueAfterElapsedDuration = (interestDueAfterEntireDuration.mul(_loanDurationSoFarInSeconds)).div(_loanTotalDurationAgreedTo);
+        if(_loanPrincipalAmount.add(interestDueAfterElapsedDuration) > _maximumRepaymentAmount){
+            return _maximumRepaymentAmount.sub(_loanPrincipalAmount);
+        } else {
+            return interestDueAfterElapsedDuration;
+        }
+    }
+
+    // @notice A convenience function computing the adminFee taken from a
+    //         specified quantity of interest
+    // @param  _interestDue - The amount of interest due, measured in the
+    //         smallest quantity of the ERC20 currency being used to pay the
+    //         interest.
+    // @param  _adminFeeInBasisPoints - The percent (measured in basis
+    //         points) of the interest earned that will be taken as a fee by
+    //         the contract admins when the loan is repaid. The fee is stored
+    //         in the loan struct to prevent an attack where the contract
+    //         admins could adjust the fee right before a loan is repaid, and
+    //         take all of the interest earned.
+    // @return The quantity of ERC20 currency (measured in smalled units of
+    //         that ERC20 currency) that is due as an admin fee.
+    function _computeAdminFee(uint256 _interestDue, uint256 _adminFeeInBasisPoints) internal pure returns (uint256) {
+    	return (_interestDue.mul(_adminFeeInBasisPoints)).div(10000);
+    }
+
+    // @notice We call this function when we wish to transfer an NFT from our
+    //         contract to another destination. Since some prominent NFT
+    //         contracts do not conform to the same standard, we try multiple
+    //         variations on transfer/transferFrom, and check whether any
+    //         succeeded.
+    // @notice Some nft contracts will not allow you to approve your own
+    //         address or do not allow you to call transferFrom() when you are
+    //         the sender, (for example, CryptoKitties does not allow you to),
+    //         while other nft contracts do not implement transfer() (since it
+    //         is not part of the official ERC721 standard but is implemented
+    //         in some prominent nft projects such as Cryptokitties), so we
+    //         must try calling transferFrom() and transfer(), and see if one
+    //         succeeds.
+    // @param  _nftContract - The NFT contract that we are attempting to
+    //         transfer an NFT from.
+    // @param  _nftId - The ID of the NFT that we are attempting to transfer.
+    // @param  _recipient - The destination of the NFT that we are attempting
+    //         to transfer.
+    // @return A bool value indicating whether the transfer attempt succeeded.
+    function _transferNftToAddress(address _nftContract, uint256 _nftId, address _recipient) internal returns (bool) {
+        // Try to call transferFrom()
+        bool transferFromSucceeded = _attemptTransferFrom(_nftContract, _nftId, _recipient);
+        if(transferFromSucceeded){
+            return true;
+        } else {
+            // Try to call transfer()
+            bool transferSucceeded = _attemptTransfer(_nftContract, _nftId, _recipient);
+            return transferSucceeded;
+        }
+    }
+
+    // @notice This function attempts to call transferFrom() on the specified
+    //         NFT contract, returning whether it succeeded.
+    // @notice We only call this function from within _transferNftToAddress(),
+    //         which is function attempts to call the various ways that
+    //         different NFT contracts have implemented transfer/transferFrom.
+    // @param  _nftContract - The NFT contract that we are attempting to
+    //         transfer an NFT from.
+    // @param  _nftId - The ID of the NFT that we are attempting to transfer.
+    // @param  _recipient - The destination of the NFT that we are attempting
+    //         to transfer.
+    // @return A bool value indicating whether the transfer attempt succeeded.
+    function _attemptTransferFrom(address _nftContract, uint256 _nftId, address _recipient) internal returns (bool) {
+        // @notice Some NFT contracts will not allow you to approve an NFT that
+        //         you own, so we cannot simply call approve() here, we have to
+        //         try to call it in a manner that allows the call to fail.
+        _nftContract.call(abi.encodeWithSelector(IERC721(_nftContract).approve.selector, address(this), _nftId));
+
+        // @notice Some NFT contracts will not allow you to call transferFrom()
+        //         for an NFT that you own but that is not approved, so we
+        //         cannot simply call transferFrom() here, we have to try to
+        //         call it in a manner that allows the call to fail.
+        (bool success, ) = _nftContract.call(abi.encodeWithSelector(IERC721(_nftContract).transferFrom.selector, address(this), _recipient, _nftId));
+        return success;
+    }
+
+    // @notice This function attempts to call transfer() on the specified
+    //         NFT contract, returning whether it succeeded.
+    // @notice We only call this function from within _transferNftToAddress(),
+    //         which is function attempts to call the various ways that
+    //         different NFT contracts have implemented transfer/transferFrom.
+    // @param  _nftContract - The NFT contract that we are attempting to
+    //         transfer an NFT from.
+    // @param  _nftId - The ID of the NFT that we are attempting to transfer.
+    // @param  _recipient - The destination of the NFT that we are attempting
+    //         to transfer.
+    // @return A bool value indicating whether the transfer attempt succeeded.
+    function _attemptTransfer(address _nftContract, uint256 _nftId, address _recipient) internal returns (bool) {
+        // @notice Some NFT contracts do not implement transfer(), since it is
+        //         not a part of the official ERC721 standard, but many
+        //         prominent NFT projects do implement it (such as
+        //         Cryptokitties), so we cannot simply call transfer() here, we
+        //         have to try to call it in a manner that allows the call to
+        //         fail.
+        (bool success, ) = _nftContract.call(abi.encodeWithSelector(ICryptoKittiesCore(_nftContract).transfer.selector, _recipient, _nftId));
+        return success;
+    }
+
+    /* ***************** */
+    /* FALLBACK FUNCTION */
+    /* ***************** */
+
+    // @notice By calling 'revert' in the fallback function, we prevent anyone
+    //         from accidentally sending funds directly to this contract.
+    function() external payable {
+        revert();
+    }
 }
