@@ -228,7 +228,7 @@ contract NFTfiSigningUtils {
     function cancelLoanCommitmentBeforeLoanHasBegun(uint256 _nonce) external {
         require(!_nonceHasBeenUsedForUser[msg.sender][_nonce], 'Nonce invalid, user has either cancelled/begun this loan, or reused a nonce when signing');
         _nonceHasBeenUsedForUser[msg.sender][_nonce] = true;
-
+    }
     // @notice This function can be used to view whether a particular nonce
     //         for a particular user has already been used, either from a
     //         successful loan or a cancelled off-chain order.
