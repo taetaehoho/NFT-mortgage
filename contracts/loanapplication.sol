@@ -1,10 +1,9 @@
-/**
- *Submitted for verification at Etherscan.io on 2020-05-11
-*/
+// SPDX-License-Identifier: GPL-3.0
 
-pragma solidity ^0.5.16;
+pragma solidity ^0.8.10;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "./SafeMath.sol";
 
 // File: contracts/NFTfi/v1/openzeppelin/ECDSA.sol
 
@@ -68,7 +67,7 @@ library ECDSA {
 
 // File: contracts/NFTfi/v1/NFTfiSigningUtils.sol
 
-pragma solidity ^0.5.16;
+pragma solidity ^0.8.10;
 
 
 // @title  Helper contract for NFT mortgage. This contract manages verifying signatures
@@ -80,7 +79,6 @@ contract NFTfiSigningUtils {
     /* CONSTRUCTOR */
     /* *********** */
 
-    constructor() internal {}
 
     /* ********* */
     /* FUNCTIONS */
@@ -90,6 +88,57 @@ contract NFTfiSigningUtils {
     //         directly on the bytes32 variables themselves.
     using ECDSA for bytes32;
     using SafeMath for uint256;
+
+    mapping (uint256 => Loan) public loanIdToLoan;
+
+    struct Loan {
+        // A unique identifier for this particular loan, sourced from the
+        // continuously increasing parameter totalNumLoans.
+        uint256 loanId;
+        // The original sum of money transferred from lender to borrower at the
+        // beginning of the loan, measured in loanERC20Denomination's smallest
+        // units.
+        uint256 loanPrincipalAmount;
+        // The maximum amount of money that the borrower would be required to
+        // repay retrieve their collateral, measured in loanERC20Denomination's
+        // smallest units. If interestIsProRated is set to false, then the
+        // borrower will always have to pay this amount to retrieve their
+        // collateral, regardless of whether they repay early.
+        uint256 maximumRepaymentAmount;
+        // The ID within the NFTCollateralContract for the NFT being used as
+        // collateral for this loan. The NFT is stored within this contract
+        // during the duration of the loan.
+        uint256 nftCollateralId;
+        // The block.timestamp when the loan first began (measured in seconds).
+        uint64 loanStartTime;
+        // The amount of time (measured in seconds) that can elapse before the
+        // lender can liquidate the loan and seize the underlying collateral.
+        uint32 loanDuration;
+        // If interestIsProRated is set to true, then this is the interest rate
+        // (measured in basis points, e.g. hundreths of a percent) for the loan,
+        // that must be repaid pro-rata by the borrower at the conclusion of
+        // the loan or risk seizure of their nft collateral. Note that if
+        // interestIsProRated is set to false, then this value is not used and
+        // is irrelevant.
+        uint32 loanInterestRateForDurationInBasisPoints;
+        // The percent (measured in basis points) of the interest earned that
+        // will be taken as a fee by the contract admins when the loan is
+        // repaid. The fee is stored here to prevent an attack where the
+        // contract admins could adjust the fee right before a loan is repaid,
+        // and take all of the interest earned.
+        uint32 loanAdminFeeInBasisPoints;
+        // The ERC721 contract of the NFT collateral
+        address nftCollateralContract;
+        // The ERC20 contract of the currency being used as principal/interest
+        // for this loan.
+        address loanERC20Denomination;
+        // The address of the borrower.
+        address borrower;
+        // A boolean value determining whether the interest will be pro-rated
+        // if the loan is repaid early, or whether the borrower will simply
+        // pay maximumRepaymentAmount.
+        bool interestIsProRated;
+    }
 
     // @notice This function gets the current chain ID.
     function getChainID() public view returns (uint256) {
@@ -164,7 +213,6 @@ contract NFTfiSigningUtils {
         uint256 _nftCollateralId,
         uint256 _loanDuration,
         uint256 _loanInterestRateForDurationInBasisPoints,
-        uint256 _adminFeeInBasisPoints,
         uint256 _borrowerNonce,
         uint256 _maximumBid,
         address _nftCollateralContract,
@@ -184,7 +232,6 @@ contract NFTfiSigningUtils {
                 _nftCollateralId,
                 _loanDuration,
                 _loanInterestRateForDurationInBasisPoints,
-                _adminFeeInBasisPoints,
                 _borrowerNonce,
                 _maximumBid,
                 _nftCollateralContract,
@@ -260,7 +307,7 @@ contract NFTfiSigningUtils {
         if(loan.interestIsProRated == false){
             return loan.maximumRepaymentAmount;
         } else {
-            uint256 loanDurationSoFarInSeconds = now.sub(uint256(loan.loanStartTime));
+            uint256 loanDurationSoFarInSeconds = block.timestamp.sub(uint256(loan.loanStartTime));
             uint256 interestDue = _computeInterestDue(loan.loanPrincipalAmount, loan.maximumRepaymentAmount, loanDurationSoFarInSeconds, uint256(loan.loanDuration), uint256(loan.loanInterestRateForDurationInBasisPoints));
             return (loan.loanPrincipalAmount).add(interestDue);
         }
@@ -317,37 +364,6 @@ contract NFTfiSigningUtils {
     	return (_interestDue.mul(_adminFeeInBasisPoints)).div(10000);
     }
 
-    // @notice We call this function when we wish to transfer an NFT from our
-    //         contract to another destination. Since some prominent NFT
-    //         contracts do not conform to the same standard, we try multiple
-    //         variations on transfer/transferFrom, and check whether any
-    //         succeeded.
-    // @notice Some nft contracts will not allow you to approve your own
-    //         address or do not allow you to call transferFrom() when you are
-    //         the sender, (for example, CryptoKitties does not allow you to),
-    //         while other nft contracts do not implement transfer() (since it
-    //         is not part of the official ERC721 standard but is implemented
-    //         in some prominent nft projects such as Cryptokitties), so we
-    //         must try calling transferFrom() and transfer(), and see if one
-    //         succeeds.
-    // @param  _nftContract - The NFT contract that we are attempting to
-    //         transfer an NFT from.
-    // @param  _nftId - The ID of the NFT that we are attempting to transfer.
-    // @param  _recipient - The destination of the NFT that we are attempting
-    //         to transfer.
-    // @return A bool value indicating whether the transfer attempt succeeded.
-    function _transferNftToAddress(address _nftContract, uint256 _nftId, address _recipient) internal returns (bool) {
-        // Try to call transferFrom()
-        bool transferFromSucceeded = _attemptTransferFrom(_nftContract, _nftId, _recipient);
-        if(transferFromSucceeded){
-            return true;
-        } else {
-            // Try to call transfer()
-            bool transferSucceeded = _attemptTransfer(_nftContract, _nftId, _recipient);
-            return transferSucceeded;
-        }
-    }
-
     // @notice This function attempts to call transferFrom() on the specified
     //         NFT contract, returning whether it succeeded.
     // @notice We only call this function from within _transferNftToAddress(),
@@ -373,35 +389,4 @@ contract NFTfiSigningUtils {
         return success;
     }
 
-    // @notice This function attempts to call transfer() on the specified
-    //         NFT contract, returning whether it succeeded.
-    // @notice We only call this function from within _transferNftToAddress(),
-    //         which is function attempts to call the various ways that
-    //         different NFT contracts have implemented transfer/transferFrom.
-    // @param  _nftContract - The NFT contract that we are attempting to
-    //         transfer an NFT from.
-    // @param  _nftId - The ID of the NFT that we are attempting to transfer.
-    // @param  _recipient - The destination of the NFT that we are attempting
-    //         to transfer.
-    // @return A bool value indicating whether the transfer attempt succeeded.
-    function _attemptTransfer(address _nftContract, uint256 _nftId, address _recipient) internal returns (bool) {
-        // @notice Some NFT contracts do not implement transfer(), since it is
-        //         not a part of the official ERC721 standard, but many
-        //         prominent NFT projects do implement it (such as
-        //         Cryptokitties), so we cannot simply call transfer() here, we
-        //         have to try to call it in a manner that allows the call to
-        //         fail.
-        (bool success, ) = _nftContract.call(abi.encodeWithSelector(ICryptoKittiesCore(_nftContract).transfer.selector, _recipient, _nftId));
-        return success;
-    }
-
-    /* ***************** */
-    /* FALLBACK FUNCTION */
-    /* ***************** */
-
-    // @notice By calling 'revert' in the fallback function, we prevent anyone
-    //         from accidentally sending funds directly to this contract.
-    function() external payable {
-        revert();
-    }
 }
