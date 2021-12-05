@@ -4,6 +4,8 @@
 
 pragma solidity ^0.5.16;
 
+import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+
 // File: contracts/NFTfi/v1/openzeppelin/ECDSA.sol
 
 /**
@@ -87,6 +89,7 @@ contract NFTfiSigningUtils {
     // @notice OpenZeppelin's ECDSA library is used to call all ECDSA functions
     //         directly on the bytes32 variables themselves.
     using ECDSA for bytes32;
+    using SafeMath for uint256;
 
     // @notice This function gets the current chain ID.
     function getChainID() public view returns (uint256) {
