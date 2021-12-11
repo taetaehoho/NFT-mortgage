@@ -12,8 +12,7 @@
         }
       ],
       "stateMutability": "view",
-      "type": "function",
-      "constant": true
+      "type": "function"
     }
   ],
   "metadata": "{\"compiler\":{\"version\":\"0.8.10+commit.fc410830\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[],\"name\":\"name\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"kind\":\"dev\",\"methods\":{},\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"project:/contracts/LoanApplication.sol\":\"LoanApplication\"},\"evmVersion\":\"london\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"ipfs\"},\"optimizer\":{\"enabled\":false,\"runs\":200},\"remappings\":[]},\"sources\":{\"project:/contracts/LoanApplication.sol\":{\"keccak256\":\"0x70cb99139a1a6bb9067323a2bec8085c87a05d996fcfe624d66be7ff57736f8c\",\"urls\":[\"bzz-raw://9557ae2535b6a5435df026fb2fb34976eaab71c81f6fece6d780e1c10f138f90\",\"dweb:/ipfs/QmeWmEzYUnabRthhaKcAg9pkjzZFy1kuZWAKaxPgMFJyu1\"]}},\"version\":1}",
@@ -1721,8 +1720,7 @@
     }
   },
   "schemaVersion": "3.4.3",
-  "updatedAt": "2021-11-28T22:30:14.948Z",
-  "networkType": "ethereum",
+  "updatedAt": "2021-12-11T19:07:39.676Z",
   "devdoc": {
     "kind": "dev",
     "methods": {},

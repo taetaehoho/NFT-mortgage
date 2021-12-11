@@ -1,0 +1,26 @@
+{
+  "name": "nft-mortgage",
+  "version": "1.0.0",
+  "description": "Creating an NFT mortgage protocol that allows for undercollateralized leveraged purchases of NFTs and lien rights for lender",
+  "main": "truffle-config.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/taetaehoho/NFT-mortgage.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/taetaehoho/NFT-mortgage/issues"
+  },
+  "homepage": "https://github.com/taetaehoho/NFT-mortgage#readme",
+  "dependencies": {
+    "@openzeppelin/contracts": "^4.4.0",
+    "@openzeppelin/contracts-upgradeable": "^4.4.0"
+  }
+}
