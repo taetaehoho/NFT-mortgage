@@ -21,6 +21,8 @@
   "homepage": "https://github.com/taetaehoho/NFT-mortgage#readme",
   "dependencies": {
     "@openzeppelin/contracts": "^4.4.0",
-    "@openzeppelin/contracts-upgradeable": "^4.4.0"
+    "@openzeppelin/contracts-upgradeable": "^4.4.0",
+    "@openzeppelin/contracts-upgradeable2": "npm:@openzeppelin/contracts-upgradeable@^3.4.0",
+    "@openzeppelin/contracts2": "npm:@openzeppelin/contracts@^3.2.0"
   }
 }

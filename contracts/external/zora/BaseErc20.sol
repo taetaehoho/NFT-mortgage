@@ -1,4 +1,4 @@
-pragma solidity 0.6.8;
+pragma solidity >0.6.8;
 
 /**
  * NOTE: This contract only exists to serve as a testing utility. It is not recommended to be used outside of a testing environment

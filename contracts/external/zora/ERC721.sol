@@ -12,7 +12,7 @@
  *  - `_approve` visibility was changed from private to internal to support EIP-2612 flavored permits and approval revocation by an approved address
  */
 
-pragma solidity 0.6.8;
+pragma solidity >0.6.8;
 
 import "@openzeppelin/contracts2/GSN/Context.sol";
 import "@openzeppelin/contracts2/token/ERC721/IERC721.sol";
